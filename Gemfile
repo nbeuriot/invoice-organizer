@@ -71,6 +71,9 @@ group :test do
   gem "webdrivers"
 end
 
+#load environment variable
+gem "dotenv-rails"
+
 #install imap mail client
 gem "net-imap"
 
