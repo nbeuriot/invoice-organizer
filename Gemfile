@@ -70,3 +70,9 @@ group :test do
   gem "selenium-webdriver"
   gem "webdrivers"
 end
+
+#install imap mail client
+gem "net-imap"
+
+#install gmail XoAuth2
+gem "gmail_xoauth"
