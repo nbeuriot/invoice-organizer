@@ -1,1 +1,41 @@
 <p> <%= @messages_count %> messages in Inbox </p>
+
+<ol>
+   <% @imap.search(["SINCE", "1-Aug-2022"]).each do |message_id| %>
+
+    <% msg = @imap.fetch(message_id,'RFC822')[0].attr['RFC822'] %>
+    <% mail = Mail.read_from_string msg %>
+
+    <li>
+      <ul>
+        <li> <%= mail.from %> </li>
+        <li> <%= mail.subject %> </li>
+        <% mail.attachments.each do |a| %>
+          <li> <%= a.filename %> </li>
+          <% fl = @folder + a.filename %>
+          <% File.open(fl, 'wb')  {|f|f.write(a.body)} %>
+          <% if mail.from[0] == 'payments-noreply@google.com' %>
+            <li> GOOGLE </li>
+            <% if a.filename.last(3) == 'pdf' %>
+              <ul>
+                <% reader = PDF::Reader.new(fl) %>
+                <li> Nb pages : <%= reader.page_count %> </li>
+                <li> PDF TEXT : <%= reader.page(1).text %> </li>
+                <% a = reader.page(1).text.index('Numéro de la facture :') + 23 %>
+                <% b = reader.page(1).text.index('Ireland') %>
+                <li> Facture num : <%= reader.page(1).text[a...b]  %> </li>
+                <% b = reader.page(1).text.index('Services soumis') - 2 %>
+                <% a = b - 10 %>
+                <% text = reader.page(1).text.slice(a..b)  %>
+                <li> Montant : <%= text %> </li>
+              </ul>
+
+            <% end %>
+          <% end %>
+        <% end %>
+      </ul>
+    </li>
+    <%# puts mail.text_part.body.to_s %>
+    <%# puts mail.html_part.body.to_s %>
+    <% end %>
+</ol>
