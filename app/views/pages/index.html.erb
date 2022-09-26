@@ -10,25 +10,84 @@
       <ul>
         <li> <%= mail.from %> </li>
         <li> <%= mail.subject %> </li>
-        <% mail.attachments.each do |a| %>
-          <li> <%= a.filename %> </li>
-          <% fl = @folder + a.filename %>
-          <% File.open(fl, 'wb')  {|f|f.write(a.body)} %>
+        <% mail.attachments.each do |attachment| %>
+          <li> <%= attachment.filename %> </li>
+          <% fl = @folder + attachment.filename %>
+          <% File.open(fl, 'wb')  {|f|f.write(attachment.body)} %>
+
+          <%# If Invoice come from Google  %>
           <% if mail.from[0] == 'payments-noreply@google.com' %>
             <li> GOOGLE </li>
-            <% if a.filename.last(3) == 'pdf' %>
+            <% if attachment.filename.last(3) == 'pdf' %>
               <ul>
                 <% reader = PDF::Reader.new(fl) %>
                 <li> Nb pages : <%= reader.page_count %> </li>
                 <li> PDF TEXT : <%= reader.page(1).text %> </li>
+
+                <%# Extract invoice number from PDF  %>
                 <% a = reader.page(1).text.index('Numéro de la facture :') + 23 %>
-                <% b = reader.page(1).text.index('Ireland') %>
-                <li> Facture num : <%= reader.page(1).text[a...b]  %> </li>
-                <% b = reader.page(1).text.index('Services soumis') - 2 %>
-                <% a = b - 10 %>
-                <% text = reader.page(1).text.slice(a..b)  %>
-                <li> Montant : <%= text %> </li>
+                <% b = reader.page(1).text.index('Ireland') - 2 %>
+                <% invoiceNum = reader.page(1).text[a...b].scan(/\w/).join('') %>
+                <li> Invoice num : <%= invoiceNum  %> </li>
+
+                <%# Extract invoice total price from PDF  %>
+                <% b = reader.page(1).text.index('Services soumis') - 5 %>
+                <% a = b - 9 %>
+                <% totalPrice = reader.page(1).text.slice(a..b).scan(/[\d,]/).join('')  %>
+                <li> Total price : <%= totalPrice %> </li>
+
+                <%# Rename file  %>
+                <% fileName = @folder + 'Google-' + invoiceNum + '-VISA-' + totalPrice + '.pdf' %>
+                <li> fileName : <%= fileName %> </li>
+                <% File.open(fileName, 'wb')  {|f|f.write(attachment.body)} %>
+                <% File.delete(fl) %>
               </ul>
+
+            <% end %>
+
+         <%# If Invoice come from Post Mobile  %>
+          <% elsif mail.from[0] == 'noreply@post.lu' %>
+            <li> PostMobile </li>
+            <% if attachment.filename.last(3) == 'pdf' %>
+              <ul>
+                <% reader = PDF::Reader.new(fl) %>
+                <li> Nb pages : <%= reader.page_count %> </li>
+                <li> PDF TEXT : <%= reader.page(1).text %> </li>
+
+                <%# Extract invoice number from PDF  %>
+                <% a = reader.page(1).text.index('FACTURE') + 11 %>
+                <% b = a + 13 %>
+                <% invoiceNum = reader.page(1).text[a...b].scan(/\w/).join('') %>
+                <li> Invoice num : <%= invoiceNum  %> </li>
+
+                <%# Extract invoice total price from PDF  %>
+                <% a = reader.page(1).text.index('total de cette facture') + 23 %>
+                <% b = a + reader.page(1).text.slice(a..-1).index("\n") %>
+                <% totalPrice = reader.page(1).text.slice(a..b).scan(/[\d,]/).join('')  %>
+                <li> Total price : <%= totalPrice %> </li>
+
+                <%# Rename file  %>
+                <% fileName = @folder + 'PostMobile-' + invoiceNum + '-SEPA-' + totalPrice + '.pdf' %>
+                <li> fileName : <%= fileName %> </li>
+                <% File.open(fileName, 'wb')  {|f|f.write(attachment.body)} %>
+                <% File.delete(fl) %>
+              </ul>
+            <% end %>
+
+         <%# if invoice come from Chargemap  %>
+          <% elsif mail.from[0] == 'support@chargemap.com' %>
+            <li> Chargemap </li>
+            <% if attachment.filename.last(3) == 'pdf' %>
+              <ul>
+                <% reader = Origami::PDF.read(fl) %>
+                <li> Nb pages : <%= reader.pages.size %> </li>
+                <li> PDF TEXT : <%= reader.pages[0] %> </li>
+                <% reader.each_page do |page| %>
+                  <% page.each_font do |name, font| %>
+                    <li> <%= name %> <%= font %> </li>
+                  <% end %>
+                <% end %>
+
 
             <% end %>
           <% end %>
