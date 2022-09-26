@@ -79,3 +79,6 @@ gem "net-imap"
 
 #install gmail XoAuth2
 gem "gmail_xoauth"
+
+#install PDF Reader
+gem "pdf-reader"
