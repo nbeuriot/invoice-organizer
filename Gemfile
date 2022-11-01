@@ -83,3 +83,6 @@ gem "gmail_xoauth"
 #install PDF Reader
 gem "pdf-reader"
 gem "origami"
+
+#install Web
+gem "open-uri"

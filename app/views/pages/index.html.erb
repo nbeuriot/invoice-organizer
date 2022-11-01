@@ -1,7 +1,7 @@
 <p> <%= @messages_count %> messages in Inbox </p>
 
 <ol>
-   <% @imap.search(["SINCE", "1-Aug-2022"]).each do |message_id| %>
+   <% @imap.search(["SINCE", "1-Jan-2022"]).each do |message_id| %>
 
     <% msg = @imap.fetch(message_id,'RFC822')[0].attr['RFC822'] %>
     <% mail = Mail.read_from_string msg %>
@@ -10,86 +10,137 @@
       <ul>
         <li> <%= mail.from %> </li>
         <li> <%= mail.subject %> </li>
+            <%# If Invoice come from Losch Financial  %>
+            <% if mail.from[0] == 'e-invoice@unifiedpost.com' %>
+              <li> Losch Financial </li>
+                <ul>
+                  <% a = mail.subject.to_s.index('Your Bill ') + 11 %>
+                  <% b = mail.subject.to_s.index(' - Volkswagen Losch Financial ') - 1 %>
+                  <% invoiceNum = mail.subject.to_s[a..b] %>
+                  <li> Invoice num : <%= invoiceNum  %> </li>
+
+                  <% a = mail.body.to_s.index('en cliquant sur le <a href=') + 28 %>
+                  <% b = mail.body.to_s.index('" style="c') - 1 %>
+                  <% link = mail.body.to_s[a..b] %>
+                  <li> Link : <%= link  %> </li>
+
+                  <% totalPrice = "276.64" %>
+                  <% fileName = @folder + 'Losch Financial-' + invoiceNum + '-SEPA-' + totalPrice + '.pdf' %>
+                  <li> fileName : <%= fileName %> </li>
+                  <% download = URI.open(link) %>
+                  <% IO.copy_stream(download, fileName) %>
+                </ul>
+            <% end %>
+
+
         <% mail.attachments.each do |attachment| %>
           <li> <%= attachment.filename %> </li>
-          <% fl = @folder + attachment.filename %>
-          <% File.open(fl, 'wb')  {|f|f.write(attachment.body)} %>
+          <% if attachment.filename.last(3) == 'pdf' %>
 
-          <%# If Invoice come from Google  %>
-          <% if mail.from[0] == 'payments-noreply@google.com' %>
-            <li> GOOGLE </li>
-            <% if attachment.filename.last(3) == 'pdf' %>
-              <ul>
-                <% reader = PDF::Reader.new(fl) %>
-                <li> Nb pages : <%= reader.page_count %> </li>
-                <li> PDF TEXT : <%= reader.page(1).text %> </li>
+            <% fl = @folder + attachment.filename %>
+            <% File.open(fl, 'wb')  {|f|f.write(attachment.body)} %>
 
-                <%# Extract invoice number from PDF  %>
-                <% a = reader.page(1).text.index('Numéro de la facture :') + 23 %>
-                <% b = reader.page(1).text.index('Ireland') - 2 %>
-                <% invoiceNum = reader.page(1).text[a...b].scan(/\w/).join('') %>
-                <li> Invoice num : <%= invoiceNum  %> </li>
+            <%# If Invoice come from Google  %>
+            <% if mail.from[0] == 'payments-noreply@google.com' %>
+              <li> GOOGLE </li>
+                <ul>
+                  <% reader = PDF::Reader.new(fl) %>
 
-                <%# Extract invoice total price from PDF  %>
-                <% b = reader.page(1).text.index('Services soumis') - 5 %>
-                <% a = b - 9 %>
-                <% totalPrice = reader.page(1).text.slice(a..b).scan(/[\d,]/).join('')  %>
-                <li> Total price : <%= totalPrice %> </li>
+                  <%# Extract invoice number from PDF  %>
+                  <% a = reader.page(1).text.index('Numéro de la facture :') + 23 %>
+                  <% b = reader.page(1).text.index('Ireland') - 2 %>
+                  <% invoiceNum = reader.page(1).text[a...b].scan(/\w/).join('') %>
+                  <li> Invoice num : <%= invoiceNum  %> </li>
 
-                <%# Rename file  %>
-                <% fileName = @folder + 'Google-' + invoiceNum + '-VISA-' + totalPrice + '.pdf' %>
-                <li> fileName : <%= fileName %> </li>
-                <% File.open(fileName, 'wb')  {|f|f.write(attachment.body)} %>
-                <% File.delete(fl) %>
-              </ul>
+                  <%# Extract invoice total price from PDF  %>
+                  <% b = reader.page(1).text.index('Services soumis') - 5 %>
+                  <% a = b - 9 %>
+                  <% totalPrice = reader.page(1).text.slice(a..b).scan(/[\d,]/).join('')  %>
+                  <li> Total price : <%= totalPrice %> </li>
 
-            <% end %>
+                  <%# Rename file  %>
+                  <% fileName = @folder + 'Google-' + invoiceNum + '-VISA-' + totalPrice + '.pdf' %>
+                  <li> fileName : <%= fileName %> </li>
+                  <% File.open(fileName, 'wb')  {|f|f.write(attachment.body)} %>
+                  <% File.delete(fl) %>
+                </ul>
 
-         <%# If Invoice come from Post Mobile  %>
-          <% elsif mail.from[0] == 'noreply@post.lu' %>
-            <li> PostMobile </li>
-            <% if attachment.filename.last(3) == 'pdf' %>
-              <ul>
-                <% reader = PDF::Reader.new(fl) %>
-                <li> Nb pages : <%= reader.page_count %> </li>
-                <li> PDF TEXT : <%= reader.page(1).text %> </li>
+            <%# If Invoice come from Post Mobile  %>
+            <% elsif mail.from[0] == 'noreply@post.lu' %>
+              <li> PostMobile </li>
+                <ul>
+                  <% reader = PDF::Reader.new(fl) %>
 
-                <%# Extract invoice number from PDF  %>
-                <% a = reader.page(1).text.index('FACTURE') + 11 %>
-                <% b = a + 13 %>
-                <% invoiceNum = reader.page(1).text[a...b].scan(/\w/).join('') %>
-                <li> Invoice num : <%= invoiceNum  %> </li>
+                  <%# Extract invoice number from PDF  %>
+                  <% a = reader.page(1).text.index('FACTURE') + 11 %>
+                  <% b = a + 13 %>
+                  <% invoiceNum = reader.page(1).text[a...b].scan(/\w/).join('') %>
+                  <li> Invoice num : <%= invoiceNum  %> </li>
 
-                <%# Extract invoice total price from PDF  %>
-                <% a = reader.page(1).text.index('total de cette facture') + 23 %>
-                <% b = a + reader.page(1).text.slice(a..-1).index("\n") %>
-                <% totalPrice = reader.page(1).text.slice(a..b).scan(/[\d,]/).join('')  %>
-                <li> Total price : <%= totalPrice %> </li>
+                  <%# Extract invoice total price from PDF  %>
+                  <% a = reader.page(1).text.index('total de cette facture') + 23 %>
+                  <% b = a + reader.page(1).text.slice(a..-1).index("\n") %>
+                  <% totalPrice = reader.page(1).text.slice(a..b).scan(/[\d,]/).join('')  %>
+                  <li> Total price : <%= totalPrice %> </li>
 
-                <%# Rename file  %>
-                <% fileName = @folder + 'PostMobile-' + invoiceNum + '-SEPA-' + totalPrice + '.pdf' %>
-                <li> fileName : <%= fileName %> </li>
-                <% File.open(fileName, 'wb')  {|f|f.write(attachment.body)} %>
-                <% File.delete(fl) %>
-              </ul>
-            <% end %>
+                  <%# Rename file  %>
+                  <% fileName = @folder + 'PostMobile-' + invoiceNum + '-SEPA-' + totalPrice + '.pdf' %>
+                  <li> fileName : <%= fileName %> </li>
+                  <% File.open(fileName, 'wb')  {|f|f.write(attachment.body)} %>
+                  <% File.delete(fl) %>
+                </ul>
 
-         <%# if invoice come from Chargemap  %>
-          <% elsif mail.from[0] == 'support@chargemap.com' %>
-            <li> Chargemap </li>
-            <% if attachment.filename.last(3) == 'pdf' %>
-              <ul>
-                <% reader = Origami::PDF.read(fl) %>
-                <li> Nb pages : <%= reader.pages.size %> </li>
-                <li> PDF TEXT : <%= reader.pages[0] %> </li>
-                <% reader.each_page do |page| %>
-                  <% page.each_font do |name, font| %>
-                    <li> <%= name %> <%= font %> </li>
+            <%# if invoice come from Chargemap  %>
+            <% elsif mail.from[0] == 'support@chargemap.com' %>
+              <li> Chargemap </li>
+                <ul>
+                  <% reader = Origami::PDF.read(fl) %>
+                  <li> Nb pages : <%= reader.pages.size %> </li>
+                  <li> PDF TEXT : <%= reader.pages[0] %> </li>
+                  <% reader.each_page do |page| %>
+                    <% page.each_font do |name, font| %>
+                      <li> <%= name %> <%= font %> </li>
+                    <% end %>
                   <% end %>
-                <% end %>
+                <% totalPrice = "0" %>
+                <%# Rename file  %>
+                  <% fileName = @folder + 'ChargeMap-' + attachment.filename.delete_suffix!(".pdf") + '-SEPA-' + totalPrice + '.pdf' %>
+                  <li> fileName : <%= fileName %> </li>
+                  <% File.open(fileName, 'wb')  {|f|f.write(attachment.body)} %>
+                  <% File.delete(fl) %>
+                </ul>
 
+            <%# if invoice come from Jost  %>
+            <% elsif mail.from[0] == "AHEUSE@jostgroup.com" %>
+              <li> Loca-Nord </li>
+              <% totalPrice = "0" %>
+              <% fileName = @folder + 'JOST-' + attachment.filename.delete_suffix!(".pdf") + '-SEPA-' + totalPrice + '.pdf' %>
+                  <li> fileName : <%= fileName %> </li>
+                  <% File.open(fileName, 'wb')  {|f|f.write(attachment.body)} %>
+                  <% File.delete(fl) %>
 
+            <%# if invoice come from MGI fisogest  %>
+            <% elsif mail.from[0] == "no-reply@mgifisogest.lu" %>
+              <li> MGI-Fisogest </li>
+              <% totalPrice = "0" %>
+              <% fileName = @folder + 'MGIFisogest-' + attachment.filename.delete_suffix!(" - ITN001.pdf") + '-SEPA-' + totalPrice + '.pdf' %>
+                  <li> fileName : <%= fileName %> </li>
+                  <% File.open(fileName, 'wb')  {|f|f.write(attachment.body)} %>
+                  <% File.delete(fl) %>
+
+            <%# if invoice come from Enovos  %>
+            <% elsif mail.from[0] == "noreply@enodrive.lu" %>
+              <li> EnoDrive </li>
+              <% totalPrice = "0" %>
+              <% fileName = @folder + 'EnoDrive-' + attachment.filename.delete_suffix!("_Enovos_IT'nB.pdf") + '-SEPA-' + totalPrice + '.pdf' %>
+                  <li> fileName : <%= fileName %> </li>
+                  <% File.open(fileName, 'wb')  {|f|f.write(attachment.body)} %>
+                  <% File.delete(fl) %>
+
+                  
             <% end %>
+
+
           <% end %>
         <% end %>
       </ul>
@@ -98,3 +149,6 @@
     <%# puts mail.html_part.body.to_s %>
     <% end %>
 </ol>
+
+@imap.logout
+@imap.disconnect
